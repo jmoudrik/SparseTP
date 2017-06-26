@@ -11,6 +11,7 @@ import java.util.ArrayList;
 /**
  * Created by huangwaleking on 6/24/17.
  */
+@SuppressWarnings("Duplicates")
 public class PhraseLDA {
     protected ArrayList<TopicAssignment> data;//include instance and topic assignments
 
@@ -145,6 +146,7 @@ public class PhraseLDA {
         for (int i = 0; i < phrase.length-1; i++) {
             this.statisticsOfWords.increase(newTopic, phrase[i]);
             phraseTopic[i] = newTopic;
+            ndk[newTopic]++;
         }
     }
 
@@ -181,6 +183,7 @@ public class PhraseLDA {
         //update statistics
         this.statisticsOfWords.increase(newTopic, word);
         phraseTopic[0] = newTopic;
+        ndk[newTopic]++;
     }
 
     public void setStatisticsOfPhrases(Alphabet alphabet, PhraseAlphabet phraseAlphabet) {
