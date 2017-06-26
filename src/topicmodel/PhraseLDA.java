@@ -63,9 +63,6 @@ public class PhraseLDA {
                         phraseTopicSequence[position][i] = wordTopic;
                         statisticsOfWords.increase(wordTopic, phrase[i]);
                     }
-                    int phraseTopic=random.nextInt(numTopics);
-                    phraseTopicSequence[position][phrase.length-1]=phraseTopic;
-                    statisticsOfPhrases.increase(phraseTopic,phrase[phrase.length-1]);
                 }
             }
 
@@ -144,7 +141,6 @@ public class PhraseLDA {
                 break;
             }
         }
-        assert (newTopic > 0);
         //update statistics
         for (int i = 0; i < phrase.length-1; i++) {
             this.statisticsOfWords.increase(newTopic, phrase[i]);
@@ -171,7 +167,6 @@ public class PhraseLDA {
 
             double p = (ndk[k] + alpha) * (this.statisticsOfWords.nKV[k][word] + beta) /
                     (this.statisticsOfWords.nK_[k] + this.betaSum);
-            assert (p >= 0);
             word_topic_dist_sum += p;
             topic_bucket[k] = word_topic_dist_sum;
         }
@@ -184,7 +179,6 @@ public class PhraseLDA {
             }
         }
         //update statistics
-        assert (newTopic >= 0);
         this.statisticsOfWords.increase(newTopic, word);
         phraseTopic[0] = newTopic;
     }
