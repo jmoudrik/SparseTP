@@ -27,7 +27,7 @@ public class PhraseLDA {
     protected StatisticsOfPhrases statisticsOfPhrases;
 
     public PhraseLDA(int numTopics, double alpha, double beta) {
-        this(numTopics, alpha, beta, new Randoms());
+        this(numTopics, alpha, beta, new Randoms(0));
     }
 
     public PhraseLDA(int numTopics, double alpha, double beta, Randoms random) {
