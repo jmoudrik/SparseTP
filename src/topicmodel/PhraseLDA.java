@@ -222,7 +222,7 @@ public class PhraseLDA {
         System.out.println(clock.tick("initialization model"));
 
         boolean showDigitNum = true;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1000; i++) {
             phraseLDA.sample();
             System.out.println(clock.tick("iteration" + i));
             if (i % 10 == 0) {
