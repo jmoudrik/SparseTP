@@ -12,7 +12,7 @@ import java.util.ArrayList;
  * Created by huangwaleking on 6/24/17.
  */
 @SuppressWarnings("Duplicates")
-public class PhraseLDA {
+public class LDA {
     protected ArrayList<TopicAssignment> data;//include instance and topic assignments
 
     private int numTopics;
@@ -24,13 +24,12 @@ public class PhraseLDA {
 
     private Randoms random;
     protected StatisticsOfWords statisticsOfWords;//nKV, nK_
-    protected StatisticsOfPhrases statisticsOfPhrases;
 
-    public PhraseLDA(int numTopics, double alpha, double beta) {
+    public LDA(int numTopics, double alpha, double beta) {
         this(numTopics, alpha, beta, new Randoms(0));
     }
 
-    public PhraseLDA(int numTopics, double alpha, double beta, Randoms random) {
+    public LDA(int numTopics, double alpha, double beta, Randoms random) {
         this.numTopics = numTopics;
         this.alpha = alpha;
         this.beta = beta;
@@ -45,7 +44,6 @@ public class PhraseLDA {
         this.numPhraseTypes = training.getPhraseAlphabet().size();
         this.betaSum = this.numWordTypes * this.beta;
         this.statisticsOfWords = new StatisticsOfWords(numTopics, numWordTypes);
-        this.statisticsOfPhrases = new StatisticsOfPhrases(numTopics, training.getPhraseAlphabet().size());
 
         for (Instance instance : training) {
             int[][] phrases = instance.getPhrases();
@@ -112,38 +110,32 @@ public class PhraseLDA {
      * compute the topic distribution for a phrase
      */
     public void sampleForPhrase(int[] phrase, int[] phraseTopic, int[] ndk) {
-        //reset
+
         for (int i = 0; i < phrase.length-1; i++) {
+            //reset
             int word = phrase[i];
             int oldTopic = phraseTopic[i];
             this.statisticsOfWords.decrease(oldTopic, word);
             ndk[oldTopic]--;
-        }
 
-        //sample
-        double[] topic_bucket = new double[numTopics];
-        double topic_dist_sum = 0;
-        for (int k = 0; k < numTopics; k++) {
-            double p = 1;
-            //add the impact of words in the phrase
-            for (int n = 0; n < phrase.length-1; n++) {
-                int word = phrase[n];
-                p *= (ndk[k] + alpha + n) * (this.statisticsOfWords.nKV[k][word] + beta)
-                        / (this.statisticsOfWords.nK_[k] + betaSum + n);
+            //sample
+            double[] topic_bucket = new double[numTopics];
+            double topic_dist_sum = 0;
+            for (int k = 0; k < numTopics; k++) {
+                double p = (ndk[k] + alpha) * (this.statisticsOfWords.nKV[k][word] + beta)
+                            / (this.statisticsOfWords.nK_[k] + betaSum);
+                topic_dist_sum += p;
+                topic_bucket[k] = topic_dist_sum;
             }
-            topic_dist_sum += p;
-            topic_bucket[k] = topic_dist_sum;
-        }
-        int newTopic = -1;
-        double sample = random.nextUniform() * topic_dist_sum;
-        for (int k = 0; k < numTopics; k++) {
-            if (sample < topic_bucket[k]) {
-                newTopic = k;
-                break;
+            int newTopic = -1;
+            double sample = random.nextUniform() * topic_dist_sum;
+            for (int k = 0; k < numTopics; k++) {
+                if (sample < topic_bucket[k]) {
+                    newTopic = k;
+                    break;
+                }
             }
-        }
-        //update statistics
-        for (int i = 0; i < phrase.length-1; i++) {
+            //update statistics
             this.statisticsOfWords.increase(newTopic, phrase[i]);
             phraseTopic[i] = newTopic;
             ndk[newTopic]++;
@@ -186,25 +178,6 @@ public class PhraseLDA {
         ndk[newTopic]++;
     }
 
-    public void setStatisticsOfPhrases(Alphabet alphabet, PhraseAlphabet phraseAlphabet) {
-        for (int doc = 0; doc < data.size(); doc++) {
-            TopicAssignment t = data.get(doc);
-            int[][] phrases = t.instance.getPhrases();
-            int[][] topicSequence = t.topicSequence;
-            for (int i = 0; i < phrases.length; i++) {
-                int[] phrase = phrases[i];
-                if (phrase.length > 1) {
-                    StringBuilder sb = new StringBuilder();
-                    for (int j = 0; j < phrase.length-1; j++) {
-                        sb.append(alphabet.lookupObject(phrase[j]) + " ");
-                    }
-                    String strPhrase = sb.toString().trim();
-                    this.statisticsOfPhrases.increase(topicSequence[i][0], phraseAlphabet.lookupIndex(strPhrase));//TODO, maybe there's out index bug
-                }
-            }
-        }
-    }
-
     public static void portal(String inputFilename) {
         TimeClock clock = new TimeClock();
         InstanceList training = InstanceList.load(new File(inputFilename));
@@ -214,7 +187,7 @@ public class PhraseLDA {
         double alpha = 0.1;
         double beta = 0.01;
 
-        PhraseLDA phraseLDA = new PhraseLDA(numTopics, alpha, beta);
+        LDA phraseLDA = new LDA(numTopics, alpha, beta);
         phraseLDA.addInstances(training);
         System.out.println(clock.tick("initialization model"));
 
@@ -229,9 +202,6 @@ public class PhraseLDA {
                 System.out.println(clock.tick("showing topics"));
             }
         }
-        phraseLDA.setStatisticsOfPhrases(training.getAlphabet(), training.getPhraseAlphabet());
-        System.out.println(TopicPrintUtil.showTopics(10, numTopics, phraseLDA.numPhraseTypes,
-                phraseLDA.statisticsOfPhrases.nKV, training.getPhraseAlphabet(), showDigitNum));
     }
 
 
