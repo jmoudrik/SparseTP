@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import static java.lang.Math.exp;
 
 /**
- * Created by huangwaleking on 6/26/17.
+ * Created by huangwaleking on 6/24/17.
  */
 @SuppressWarnings("Duplicates")
 public class TP {
@@ -29,7 +29,7 @@ public class TP {
     protected StatisticsOfPhrases statisticsOfPhrases;
 
     public TP(int numTopics, double alpha, double beta) {
-        this(numTopics, alpha, beta, new Randoms());
+        this(numTopics, alpha, beta, new Randoms(0));
     }
 
     public TP(int numTopics, double alpha, double beta, Randoms random) {
@@ -47,7 +47,7 @@ public class TP {
         this.numPhraseTypes = training.getPhraseAlphabet().size();
         this.betaSum = this.numWordTypes * this.beta;
         this.statisticsOfWords = new StatisticsOfWords(numTopics, numWordTypes);
-        this.statisticsOfPhrases = new StatisticsOfPhrases(numTopics, training.getPhraseAlphabet().size());
+        this.statisticsOfPhrases=new StatisticsOfPhrases(numTopics,numPhraseTypes);
 
         for (Instance instance : training) {
             int[][] phrases = instance.getPhrases();
@@ -61,16 +61,14 @@ public class TP {
                     phraseTopicSequence[position][0] = topic;
                     statisticsOfWords.increase(topic, phrase[0]);
                 }else{//phrase
-                    int numWords=phrase.length-1;
-                    int phraseTermPosition=phrase.length-1;
-                    for (int i = 0; i < numWords; i++) {
+                    for (int i = 0; i < phrase.length-1; i++) {
                         int wordTopic = random.nextInt(numTopics);
                         phraseTopicSequence[position][i] = wordTopic;
                         statisticsOfWords.increase(wordTopic, phrase[i]);
                     }
                     int phraseTopic=random.nextInt(numTopics);
-                    phraseTopicSequence[position][phraseTermPosition]=phraseTopic;
-                    statisticsOfPhrases.increase(phraseTopic,phrase[phraseTermPosition]);
+                    phraseTopicSequence[position][phrase.length-1]=phraseTopic;
+                    statisticsOfPhrases.increase(phraseTopic,phrase[phrase.length-1]);
                 }
             }
 
@@ -99,7 +97,7 @@ public class TP {
                 int k=topicSequence[i][0];
                 ndk[k]++;
             }else{//phrase
-                for (int j = 0; j < phrase.length; j++) {//ndk includes the topics of phrase and words
+                for (int j = 0; j < phrase.length-1; j++) {
                     int k = topicSequence[i][j];
                     ndk[k]++;
                 }
@@ -110,7 +108,7 @@ public class TP {
             if (phrases[position].length == 1) {
                 sampleForWord(phrases[position], topicSequence[position], ndk);
             } else {
-                sampleForPhrase(phrases[position], topicSequence[position], ndk);
+                sampleForPhrase(phrases[position], topicSequence[position], ndk);//TODO
             }
         }
     }
@@ -118,83 +116,40 @@ public class TP {
     /**
      * compute the topic distribution for a phrase
      */
-    public void sampleForPhrase(int[] phrase, int[] topicSequence, int[] ndk) {//TODO, to check if it's right
-        //sample for word terms
-        int phraseTermPosition=phrase.length-1;
-        int phraseTerm = phrase[phraseTermPosition];
-        int oldPhraseTopic= topicSequence[phraseTermPosition];
-        int numWords=phrase.length-1;
-
-        for (int n = 0; n < numWords; n++) {
+    public void sampleForPhrase(int[] phrase, int[] phraseTopic, int[] ndk) {
+        int oldPhraseTopic=phraseTopic[phrase.length-1];
+        for (int i = 0; i < phrase.length-1; i++) {
             //reset
-            int word = phrase[n];
-            int oldTopic = topicSequence[n];
+            int word = phrase[i];
+            int oldTopic = phraseTopic[i];
             this.statisticsOfWords.decrease(oldTopic, word);
             ndk[oldTopic]--;
 
+            //sample
             double[] topic_bucket = new double[numTopics];
             double topic_dist_sum = 0;
             for (int k = 0; k < numTopics; k++) {
-                //add the impact of words in the phrase
                 double p = (ndk[k] + alpha) * (this.statisticsOfWords.nKV[k][word] + beta)
                         / (this.statisticsOfWords.nK_[k] + betaSum);
                 if(oldPhraseTopic==k){
-                    p*=exp(1/(float)numWords);
+//                    p*=exp(1.0/(float)(phrase.length-1));//TODO
                 }
                 topic_dist_sum += p;
                 topic_bucket[k] = topic_dist_sum;
             }
-            int newWordTopic = -1;
+            int newTopic = -1;
             double sample = random.nextUniform() * topic_dist_sum;
             for (int k = 0; k < numTopics; k++) {
                 if (sample < topic_bucket[k]) {
-                    newWordTopic = k;
+                    newTopic = k;
                     break;
                 }
             }
             //update statistics
-            this.statisticsOfWords.increase(newWordTopic, word);
-            topicSequence[n] = newWordTopic;
-            ndk[newWordTopic]++;
+            this.statisticsOfWords.increase(newTopic, phrase[i]);
+            phraseTopic[i] = newTopic;
+            ndk[newTopic]++;
         }
-
-        //sample for phrase term
-        //reset
-        this.statisticsOfPhrases.decrease(oldPhraseTopic, phraseTerm);
-        ndk[oldPhraseTopic]--;
-
-        //sample
-        double[] topic_bucket = new double[numTopics];
-        double topic_dist_sum = 0;
-        for (int k = 0; k < numTopics; k++) {
-            //add the impact of words in the phrase
-            double p = (ndk[k] + alpha) * (this.statisticsOfPhrases.nKV[k][phraseTerm] + beta)
-                    / (this.statisticsOfPhrases.nK_[k] + betaSum);
-            int numOfWordTopicAsK=0;
-            for(int n=0;n<numWords;n++){
-                if(topicSequence[n]==k){
-                    numOfWordTopicAsK++;
-                }
-            }
-            if(numOfWordTopicAsK!=0){
-                p*=exp(numOfWordTopicAsK/(float)numWords);
-            }
-            topic_dist_sum += p;
-            topic_bucket[k] = topic_dist_sum;
-        }
-
-        int newPhraseTopic = -1;
-        double sample = random.nextUniform() * topic_dist_sum;
-        for (int k = 0; k < numTopics; k++) {
-            if (sample < topic_bucket[k]) {
-                newPhraseTopic = k;
-                break;
-            }
-        }
-        //update statistics
-        this.statisticsOfPhrases.increase(newPhraseTopic, phraseTerm);
-        topicSequence[phraseTermPosition] = newPhraseTopic;
-        ndk[newPhraseTopic]++;
     }
 
     /**
@@ -240,7 +195,7 @@ public class TP {
 
         int numTopics = 100;
         double alpha = 0.1;
-        double beta = 0.25;
+        double beta = 0.01;
 
         TP tp = new TP(numTopics, alpha, beta);
         tp.addInstances(training);
@@ -251,20 +206,18 @@ public class TP {
             tp.sample();
             System.out.println(clock.tick("iteration" + i));
             if (i % 10 == 0) {
+
                 System.out.println(TopicPrintUtil.showTopics(30, numTopics, tp.numWordTypes,
                         tp.statisticsOfWords.nKV, training.getAlphabet(), showDigitNum));
-                System.out.println(TopicPrintUtil.showTopics(10, numTopics, tp.numPhraseTypes,
-                        tp.statisticsOfPhrases.nKV, training.getPhraseAlphabet(), showDigitNum));
                 System.out.println(clock.tick("showing topics"));
             }
         }
-//        System.out.println(TopicPrintUtil.showTopics(10, numTopics, tp.numPhraseTypes,
-//                tp.statisticsOfPhrases.nKV, training.getPhraseAlphabet(), showDigitNum));
     }
 
 
     public static void main(String[] args) {
-//        portal("input/20newsgroups.txt.serialized");
-        portal("input/Argentina.json.serialized");
+        portal("input/20newsgroups.txt.serialized");
+//        portal("input/Argentina.json.serialized");
     }
+
 }
