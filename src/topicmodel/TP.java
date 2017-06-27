@@ -101,6 +101,7 @@ public class TP {
                     int k = topicSequence[i][j];
                     ndk[k]++;
                 }
+                ndk[ topicSequence[i][phrase.length-1] ]++;//TODO
             }
         }
         //update topicSequence
@@ -132,7 +133,7 @@ public class TP {
                 double p = (ndk[k] + alpha) * (this.statisticsOfWords.nKV[k][word] + beta)
                         / (this.statisticsOfWords.nK_[k] + betaSum);
                 if(oldPhraseTopic==k){
-//                    p*=exp(1.0/(float)(phrase.length-1));//TODO
+                    p*=exp(1.0/(float)(phrase.length-1));//TODO
                 }
                 topic_dist_sum += p;
                 topic_bucket[k] = topic_dist_sum;
@@ -150,6 +151,41 @@ public class TP {
             phraseTopic[i] = newTopic;
             ndk[newTopic]++;
         }
+
+        //phrase part
+        int phraseTerm=phrase[phrase.length-1];
+        this.statisticsOfPhrases.decrease(oldPhraseTopic,phraseTerm);
+        ndk[oldPhraseTopic]--;
+
+        double[] topic_bucket = new double[numTopics];
+        double topic_dist_sum = 0;
+
+        for (int k = 0; k < numTopics; k++) {
+            double p = (ndk[k] + alpha) * (this.statisticsOfPhrases.nKV[k][phraseTerm] + beta)
+                    / (this.statisticsOfPhrases.nK_[k] + betaSum);
+            double wordPartTopicAssignments=0.0;
+            for(int n=0;n<phrase.length-1;n++){
+                if(phraseTopic[n]==k){
+                    wordPartTopicAssignments+=1;
+                }
+            }
+            if(wordPartTopicAssignments>0){
+                p*=exp(wordPartTopicAssignments/(float)(phrase.length-1));//TODO
+            }
+            topic_dist_sum += p;
+            topic_bucket[k] = topic_dist_sum;
+        }
+        double sample = random.nextUniform() * topic_dist_sum;
+        int newPhraseTopic=-1;
+        for (int k = 0; k < numTopics; k++) {
+            if (sample < topic_bucket[k]) {
+                newPhraseTopic = k;
+                break;
+            }
+        }
+        this.statisticsOfPhrases.increase(newPhraseTopic, phrase[phrase.length-1]);
+        phraseTopic[phrase.length-1] = newPhraseTopic;
+        ndk[newPhraseTopic]++;
     }
 
     /**
@@ -207,8 +243,10 @@ public class TP {
             System.out.println(clock.tick("iteration" + i));
             if (i % 10 == 0) {
 
-                System.out.println(TopicPrintUtil.showTopics(30, numTopics, tp.numWordTypes,
+                System.out.println(TopicPrintUtil.showTopics(10, numTopics, tp.numWordTypes,
                         tp.statisticsOfWords.nKV, training.getAlphabet(), showDigitNum));
+                System.out.println(TopicPrintUtil.showTopics(10, numTopics, tp.numPhraseTypes,
+                        tp.statisticsOfPhrases.nKV, training.getPhraseAlphabet(), showDigitNum));
                 System.out.println(clock.tick("showing topics"));
             }
         }
