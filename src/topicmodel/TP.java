@@ -255,7 +255,7 @@ public class TP {
 
     public static void main(String[] args) {
         portal("input/20newsgroups.txt.serialized");
-//        portal("input/Argentina.json.serialized");
+        portal("input/Argentina.json.serialized");
     }
 
 }

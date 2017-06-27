@@ -104,7 +104,7 @@ public class TopicPrintUtil {
         out.append ("topic"  + ":\t");
         while (iterator.hasNext() && i < numEntityToShow) {
             IDSorter info = iterator.next();
-            out.append(alphabet.lookupObject(info.getID()) + "(" + info.getWeight() + ")\t");
+            out.append(alphabet.lookupObject(info.getID()) + "(" + info.getWeight() + "),");
             i++;
         }
         out.append ("\n");
@@ -125,9 +125,9 @@ public class TopicPrintUtil {
             while (iterator.hasNext() && i < numEntityToShow) {
                 IDSorter info = iterator.next();
                 if(showDigitNum==true){
-                    out.append(alphabet.lookupObject(info.getID()) + "(" + info.getWeight() + ")\t");
+                    out.append(alphabet.lookupObject(info.getID()) + "(" + info.getWeight() + "),");
                 }else{
-                    out.append(alphabet.lookupObject(info.getID()) + "\t");
+                    out.append(alphabet.lookupObject(info.getID()) + ",");
                 }
                 i++;
             }
